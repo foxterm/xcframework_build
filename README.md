@@ -14,26 +14,18 @@ Automated compilation of OpenSSL / libssh / libvncserver into Apple platform XCF
 
 ## Architecture Overview
 
-```
-+---------------------------------------------------------------------+
-|                      GitHub Actions CI/CD                            |
-+---------------------------------------------------------------------+
-|                                                                      |
-|  +--------------+    +--------------+    +--------------+           |
-|  | Check Daily  |--->| Build on     |--->| Push to      |           |
-|  | Version      |    | macOS 15     |    | Repos        |           |
-|  | Update       |    | Runner       |    |              |           |
-|  +------+-------+    +------+-------+    +------+-------+           |
-|         |                   |                   |                    |
-|         v                   v                   v                    |
-|  +--------------+    +--------------+    +--------------+           |
-|  | OpenSSL API  |    |  OpenSSL     |    | foxterm/     |           |
-|  | GitLab API   |    |  CSSH        |    | OpenSSL      |           |
-|  | GitHub API   |    |  VNC         |    | foxterm/SSH  |           |
-|  +--------------+    +--------------+    | foxterm/VNC  |           |
-|                                           +--------------+           |
-|                                                                      |
-+---------------------------------------------------------------------+
+```mermaid
+graph LR
+    A["🔍 Check Daily\nVersion Update"] -->|new version| B["⚙️ Build on\nmacOS 15 Runner"]
+    B --> C["🚀 Push to\nRepositories"]
+
+    A -.->|APIs| A1["OpenSSL · GitLab · GitHub"]
+    B -.->|Artifacts| B1["OpenSSL · CSSH · VNC"]
+    C -.->|Targets| C1["foxterm/OpenSSL · SSH · VNC"]
+
+    style A fill:#e8f5e9,stroke:#4caf50,color:#1b5e20
+    style B fill:#e3f2fd,stroke:#2196f3,color:#0d47a1
+    style C fill:#fff3e0,stroke:#ff9800,color:#e65100
 ```
 
 ## Build Artifacts
@@ -75,18 +67,15 @@ When new versions are detected, automatically:
 
 ### Smart Caching
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    GitHub Actions Cache                       │
-├─────────────────────────────────────────────────────────────┤
-│  OpenSSL Build Cache                                        │
-│  Key: openssl-{version}-macos15                             │
-│  → Skips compilation when version unchanged, uses cache     │
-│                                                              │
-│  Source Code Cache                                          │
-│  Key: {lib}-sources-{hash}                                  │
-│  → Avoids repeated cloning/downloading of source code       │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph "GitHub Actions Cache"
+        O["OpenSSL Build Cache\nKey: openssl-{version}-macos15\n→ Skip compilation when version unchanged"]
+        S["Source Code Cache\nKey: {lib}-sources-{hash}\n→ Avoid repeated cloning/downloading"]
+    end
+
+    style O fill:#e3f2fd,stroke:#2196f3,color:#0d47a1
+    style S fill:#e8f5e9,stroke:#4caf50,color:#1b5e20
 ```
 
 ## Build Pipeline

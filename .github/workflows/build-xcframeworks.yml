@@ -42,6 +42,12 @@ jobs:
           path: openssl_xcframework_build/
           key: openssl-${{ env.OPENSSL_VERSION_TAG }}-macos15
 
+      - name: Cache OpenSSL sources
+        uses: actions/cache@v6
+        with:
+          path: OpenSSL/openssl_xcframework_build/sources/
+          key: openssl-sources-${{ env.OPENSSL_VERSION_TAG }}
+
       - name: Build OpenSSL
         if: (inputs.build_libs == 'all' || contains(inputs.build_libs, 'openssl')) && steps.openssl-cache.outputs.cache-hit != 'true'
         run: |
@@ -61,6 +67,13 @@ jobs:
       # ================================================================
       # CSSH (libssh)
       # ================================================================
+      - name: Cache CSSH sources
+        if: inputs.build_libs == 'all' || contains(inputs.build_libs, 'cssh')
+        uses: actions/cache@v6
+        with:
+          path: CSSH/xcframework_build/sources/
+          key: cssh-sources-${{ hashFiles('CSSH/build_xcframework.sh') }}
+
       - name: Build CSSH (libssh)
         if: inputs.build_libs == 'all' || contains(inputs.build_libs, 'cssh')
         working-directory: ./CSSH
@@ -74,6 +87,15 @@ jobs:
       # ================================================================
       # VNC (libvncserver)
       # ================================================================
+      - name: Cache VNC sources
+        if: inputs.build_libs == 'all' || contains(inputs.build_libs, 'vnc')
+        uses: actions/cache@v6
+        with:
+          path: |
+            VNC/xcframework_build/sources/
+            VNC/xcframework_build/deps/
+          key: vnc-sources-${{ hashFiles('VNC/build_xcframework.sh') }}
+
       - name: Build VNC (libvncserver)
         if: inputs.build_libs == 'all' || contains(inputs.build_libs, 'vnc')
         working-directory: ./VNC

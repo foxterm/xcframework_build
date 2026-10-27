@@ -111,22 +111,47 @@ jobs:
       - name: Collect xcframeworks
         if: always()
         run: |
-          mkdir -p xcframeworks
+          mkdir -p xcframework
+          rm -rf xcframework/OpenSSL.xcframework xcframework/libssh.xcframework xcframework/libvncclient.xcframework
           [ -d "OpenSSL/xcframework/OpenSSL.xcframework" ] && \
-            cp -R OpenSSL/xcframework/OpenSSL.xcframework xcframeworks/
+            cp -R OpenSSL/xcframework/OpenSSL.xcframework xcframework/
           [ -d "CSSH/xcframework/libssh.xcframework" ] && \
-            cp -R CSSH/xcframework/libssh.xcframework xcframeworks/
+            cp -R CSSH/xcframework/libssh.xcframework xcframework/
           [ -d "VNC/xcframework/libvncclient.xcframework" ] && \
-            cp -R VNC/xcframework/libvncclient.xcframework xcframeworks/
+            cp -R VNC/xcframework/libvncclient.xcframework xcframework/
           echo "=== Built xcframeworks ==="
-          ls -la xcframeworks/
+          ls -la xcframework/
+
+      - name: Commit and push xcframeworks
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # 检查是否有变更
+          if git diff --quiet xcframework/ 2>/dev/null && [ -z "$(git ls-files --others --exclude-standard xcframework/)" ]; then
+            echo "xcframeworks 无变更，跳过提交"
+            exit 0
+          fi
+          
+          git add xcframework/
+          
+          # 构建 commit message
+          MSG="build: update xcframeworks ("
+          [ -d "xcframework/OpenSSL.xcframework" ] && MSG="${MSG}OpenSSL=${OPENSSL_VERSION_TAG} "
+          [ -d "xcframework/libssh.xcframework" ] && MSG="${MSG}libssh "
+          [ -d "xcframework/libvncclient.xcframework" ] && MSG="${MSG}libvncclient "
+          MSG="${MSG})"
+          
+          git commit -m "${MSG}"
+          git push
 
       - name: Upload xcframeworks
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: xcframeworks
-          path: xcframeworks/
+          path: xcframework/
           retention-days: 30
 
       # ================================================================
@@ -138,7 +163,7 @@ jobs:
           echo "=========================================="
           echo "         XCFramework 体积报告"
           echo "=========================================="
-          for xfw in xcframeworks/*.xcframework; do
+          for xfw in xcframework/*.xcframework; do
             [ -d "$xfw" ] || continue
             name=$(basename "$xfw")
             size=$(du -sh "$xfw" 2>/dev/null | cut -f1)

@@ -14,25 +14,18 @@
 
 ## 架构概览
 
-```
-+---------------------------------------------------------------------+
-|                      GitHub Actions CI/CD                            |
-+---------------------------------------------------------------------+
-|                                                                      |
-|  +--------------+    +--------------+    +--------------+           |
-|  | 每日检查     |--->| macOS 15     |--->| 推送到仓库    |           |
-|  | 版本更新     |    | 构建         |    |              |           |
-|  +------+-------+    +------+-------+    +------+-------+           |
-|         |                   |                   |                    |
-|         v                   v                   v                    |
-|  +--------------+    +--------------+    +--------------+           |
-|  | OpenSSL API  |    |  OpenSSL     |    | foxterm/     |           |
-|  | GitLab API   |    |  CSSH        |    | OpenSSL      |           |
-|  | GitHub API   |    |  VNC         |    | foxterm/SSH  |           |
-|  +--------------+    +--------------+    | foxterm/VNC  |           |
-|                                           +--------------+           |
-|                                                                      |
-+---------------------------------------------------------------------+
+```mermaid
+graph LR
+    A["🔍 每日检查\n版本更新"] -->|新版本| B["⚙️ macOS 15\n构建"]
+    B --> C["🚀 推送到\n目标仓库"]
+
+    A -.->|API| A1["OpenSSL · GitLab · GitHub"]
+    B -.->|产物| B1["OpenSSL · CSSH · VNC"]
+    C -.->|目标| C1["foxterm/OpenSSL · SSH · VNC"]
+
+    style A fill:#e8f5e9,stroke:#4caf50,color:#1b5e20
+    style B fill:#e3f2fd,stroke:#2196f3,color:#0d47a1
+    style C fill:#fff3e0,stroke:#ff9800,color:#e65100
 ```
 ## 编译产物
 
@@ -73,18 +66,15 @@ OpenSSL 编译采用激进的裁剪策略，仅保留 FoxTerm 实际使用的 AP
 
 ### 智能缓存
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    GitHub Actions Cache                       │
-├─────────────────────────────────────────────────────────────┤
-│  OpenSSL 构建缓存                                            │
-│  Key: openssl-{version}-macos15                             │
-│  → 版本不变时跳过编译，直接使用缓存                            │
-│                                                              │
-│  源码缓存                                                    │
-│  Key: {lib}-sources-{hash}                                  │
-│  → 避免重复克隆/下载源码                                     │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph "GitHub Actions 缓存"
+        O["OpenSSL 构建缓存\nKey: openssl-{version}-macos15\n→ 版本不变时跳过编译，直接使用缓存"]
+        S["源码缓存\nKey: {lib}-sources-{hash}\n→ 避免重复克隆/下载源码"]
+    end
+
+    style O fill:#e3f2fd,stroke:#2196f3,color:#0d47a1
+    style S fill:#e8f5e9,stroke:#4caf50,color:#1b5e20
 ```
 
 ## 构建流程

@@ -2,7 +2,9 @@
 
 <div align="center">
 
-**自动化编译 OpenSSL / libssh / libvncserver 为 Apple 平台 XCFramework**
+**Automated compilation of OpenSSL / libssh / libvncserver into Apple platform XCFrameworks**
+
+**[English](README.md)** | [中文文档](README_CN.md)
 
 [![Build XCFrameworks](https://github.com/foxterm/xcframework_build/actions/workflows/build-xcframeworks.yml/badge.svg)](https://github.com/foxterm/xcframework_build/actions/workflows/build-xcframeworks.yml)
 [![Check Dependency Updates](https://github.com/foxterm/xcframework_build/actions/workflows/check-versions.yml/badge.svg)](https://github.com/foxterm/xcframework_build/actions/workflows/check-versions.yml)
@@ -13,7 +15,7 @@
 
 ---
 
-## 架构概览
+## Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -36,44 +38,44 @@
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## 编译产物
+## Build Artifacts
 
-| XCFramework | 源库 | 架构支持 | 输出位置 |
-|-------------|------|----------|----------|
+| XCFramework | Source Library | Architecture Support | Output Location |
+|-------------|----------------|---------------------|-----------------|
 | `OpenSSL.xcframework` | [openssl/openssl](https://github.com/openssl/openssl) | macOS arm64/x86_64, iOS arm64, Simulator arm64 | [foxterm/OpenSSL](https://github.com/foxterm/OpenSSL) |
 | `libssh.xcframework` | [libssh/libssh](https://gitlab.com/libssh/libssh-mirror) | macOS arm64/x86_64, iOS arm64, Simulator arm64 | [foxterm/SSH](https://github.com/foxterm/SSH) |
 | `libvncclient.xcframework` | [LibVNC/libvncserver](https://github.com/LibVNC/libvncserver) | macOS arm64/x86_64, iOS arm64, Simulator arm64 | [foxterm/VNC](https://github.com/foxterm/VNC) |
 
-## 核心特性
+## Core Features
 
-### 极致体积优化
+### Extreme Size Optimization
 
-OpenSSL 编译采用激进的裁剪策略，仅保留 FoxTerm 实际使用的 API：
+OpenSSL compilation uses aggressive trimming strategy, keeping only APIs actually used by FoxTerm:
 
 ```bash
-# 保留: AES, DES, ChaCha20, RSA, ECDSA, Ed25519, ECDH, X25519, SHA-1/2, TLS/SSL, X509
-# 裁剪: 30+ 不需要的算法和模块
+# Kept: AES, DES, ChaCha20, RSA, ECDSA, Ed25519, ECDH, X25519, SHA-1/2, TLS/SSL, X509
+# Trimmed: 30+ unnecessary algorithms and modules
 
-# 编译优化: -Oz (最小体积) + strip -x (剥离本地符号)
-# 合并: libssl.a + libcrypto.a → libopenssl.a (单库)
+# Compilation optimization: -Oz (minimum size) + strip -x (strip local symbols)
+# Merge: libssl.a + libcrypto.a → libopenssl.a (single library)
 ```
 
-### 自动化版本检测
+### Automated Version Detection
 
-每天 UTC 00:00 自动检查依赖更新：
+Automatically checks for dependency updates daily at UTC 00:00:
 
-| 依赖 | 检测方式 | 数据源 |
-|------|----------|--------|
+| Dependency | Detection Method | Data Source |
+|------------|------------------|-------------|
 | OpenSSL | GitHub Tags API | `api.github.com/repos/openssl/openssl/tags` |
 | libssh | GitLab Tags API | `gitlab.com/api/v4/projects/libssh%2Flibssh-mirror/repository/tags` |
-| libvncserver | Commit SHA 对比 | `api.github.com/repos/LibVNC/libvncserver/commits/master` |
+| libvncserver | Commit SHA Comparison | `api.github.com/repos/LibVNC/libvncserver/commits/master` |
 
-发现新版本时自动：
-1. 更新构建脚本中的版本号
-2. 提交变更到仓库
-3. 触发构建工作流
+When new versions are detected, automatically:
+1. Updates version numbers in build scripts
+2. Commits changes to repository
+3. Triggers build workflow
 
-### 智能缓存
+### Smart Caching
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -81,15 +83,15 @@ OpenSSL 编译采用激进的裁剪策略，仅保留 FoxTerm 实际使用的 AP
 ├─────────────────────────────────────────────────────────────┤
 │  OpenSSL Build Cache                                        │
 │  Key: openssl-{version}-macos15                             │
-│  → 版本不变时跳过编译，直接使用缓存                            │
+│  → Skips compilation when version unchanged, uses cache     │
 │                                                              │
 │  Source Code Cache                                          │
 │  Key: {lib}-sources-{hash}                                  │
-│  → 避免重复克隆/下载源码                                     │
+│  → Avoids repeated cloning/downloading of source code       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 构建流程
+## Build Pipeline
 
 ```
 Build XCFrameworks Workflow
@@ -121,30 +123,30 @@ Build XCFrameworks Workflow
     └─ foxterm/VNC ← libvncclient.xcframework
 ```
 
-## 手动触发构建
+## Manual Build Trigger
 
-### 构建全部
+### Build All
 
 ```bash
 gh workflow run build-xcframeworks.yml -R foxterm/xcframework_build -f build_libs=all
 ```
 
-### 仅构建特定库
+### Build Specific Libraries Only
 
 ```bash
-# 仅 OpenSSL
+# OpenSSL only
 gh workflow run build-xcframeworks.yml -R foxterm/xcframework_build -f build_libs=openssl
 
 # OpenSSL + CSSH
 gh workflow run build-xcframeworks.yml -R foxterm/xcframework_build -f build_libs=openssl+cssh
 
-# 仅 VNC (需要 OpenSSL 缓存)
+# VNC only (requires OpenSSL cache)
 gh workflow run build-xcframeworks.yml -R foxterm/xcframework_build -f build_libs=vnc
 ```
 
-## 本地构建
+## Local Build
 
-### 前置要求
+### Prerequisites
 
 ```bash
 # macOS
@@ -154,115 +156,116 @@ brew install cmake ninja libtool autoconf automake nasm
 xcode-select --install
 ```
 
-### 编译 OpenSSL
+### Build OpenSSL
 
 ```bash
 cd OpenSSL
 bash build_xcframework.sh
 ```
 
-### 编译 CSSH (libssh)
+### Build CSSH (libssh)
 
 ```bash
 cd CSSH
-# 确保 OpenSSL 已编译到 ../openssl_xcframework_build/
+# Ensure OpenSSL is built to ../openssl_xcframework_build/
 bash build_xcframework.sh
 ```
 
-### 编译 VNC (libvncserver)
+### Build VNC (libvncserver)
 
 ```bash
 cd VNC
-# 确保 OpenSSL 已编译到 ../openssl_xcframework_build/
+# Ensure OpenSSL is built to ../openssl_xcframework_build/
 bash build_xcframework.sh
 ```
 
-## 仓库结构
+## Repository Structure
 
 ```
 xcframework_build/
 ├── .github/
 │   └── workflows/
-│       ├── build-xcframeworks.yml    # 构建工作流
-│       └── check-versions.yml        # 版本检测工作流
+│       ├── build-xcframeworks.yml    # Build workflow
+│       └── check-versions.yml        # Version check workflow
 ├── OpenSSL/
-│   ├── build_xcframework.sh          # OpenSSL 构建脚本
-│   └── openssl_xcframework_build/    # 构建产物 (gitignored)
+│   ├── build_xcframework.sh          # OpenSSL build script
+│   └── openssl_xcframework_build/    # Build artifacts (gitignored)
 ├── CSSH/
-│   ├── build_xcframework.sh          # libssh 构建脚本
-│   └── xcframework_build/            # 构建产物 (gitignored)
+│   ├── build_xcframework.sh          # libssh build script
+│   └── xcframework_build/            # Build artifacts (gitignored)
 ├── VNC/
-│   ├── build_xcframework.sh          # libvncserver 构建脚本
-│   └── xcframework_build/            # 构建产物 (gitignored)
-├── vnc_master_hash.txt               # libvncserver master 分支追踪
-└── README.md
+│   ├── build_xcframework.sh          # libvncserver build script
+│   └── xcframework_build/            # Build artifacts (gitignored)
+├── vnc_master_hash.txt               # libvncserver master branch tracking
+├── README.md                         # English documentation
+└── README_CN.md                      # Chinese documentation
 ```
 
-## 环境变量
+## Environment Variables
 
-构建脚本支持通过环境变量覆盖默认配置：
+Build scripts support overriding default configuration via environment variables:
 
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| `OPENSSL_VERSION` | OpenSSL 版本标签 | `openssl-4.1.0` |
-| `LIBSSH_VERSION` | libssh 版本号 | `0.12.2` |
-| `OPENSSL_BUILD_DIR` | OpenSSL 产物路径 (CI 用) | 脚本相对路径 |
+| Variable | Description | Default Value |
+|----------|-------------|---------------|
+| `OPENSSL_VERSION` | OpenSSL version tag | `openssl-4.1.0` |
+| `LIBSSH_VERSION` | libssh version number | `0.12.2` |
+| `OPENSSL_BUILD_DIR` | OpenSSL artifacts path (for CI) | Script relative path |
 
-示例：
+Example:
 ```bash
 OPENSSL_VERSION="openssl-4.0.0" bash OpenSSL/build_xcframework.sh
 ```
 
-## Secrets 配置
+## Secrets Configuration
 
-| Secret | 说明 |
-|--------|------|
-| `GH_PAT` | GitHub Personal Access Token，用于跨仓库推送 xcframework |
+| Secret | Description |
+|--------|-------------|
+| `GH_PAT` | GitHub Personal Access Token for cross-repository xcframework push |
 
-PAT 需要 `repo` 权限，用于推送构建产物到：
+PAT requires `repo` permission, used to push build artifacts to:
 - `foxterm/OpenSSL`
 - `foxterm/SSH`
 - `foxterm/VNC`
 
-## 技术细节
+## Technical Details
 
-### 编译目标
+### Build Targets
 
-| 平台 | 架构 | 最低版本 |
-|------|------|----------|
+| Platform | Architecture | Minimum Version |
+|----------|--------------|-----------------|
 | macOS | arm64, x86_64 | macOS 14.0 |
 | iOS | arm64 | iOS 17.0 |
 | iOS Simulator | arm64 | iOS 17.0 |
 
-### OpenSSL 裁剪清单
+### OpenSSL Trim List
 
 <details>
-<summary>点击展开完整裁剪列表</summary>
+<summary>Click to expand full trim list</summary>
 
-**禁用的协议:**
+**Disabled Protocols:**
 - SSL 3.0, TLS 1.0, TLS 1.1, DTLS
 
-**禁用的加密算法:**
+**Disabled Encryption Algorithms:**
 - ARIA, Camellia, CAST, IDEA, RC2, RC5, SEED, SM2, SM3, SM4, Whirlpool, BLAKE2, RMD160, MD4
 
-**禁用的功能:**
+**Disabled Features:**
 - Compression, OCB, CT, PSK, SRP, SRTP, Scrypt, TS, CMS, GOST, KTLS, FIPS
 
-**禁用的模块:**
+**Disabled Modules:**
 - Engine, Dynamic modules, Filenames tracking, Async operations
 
 </details>
 
-### libvncserver 依赖
+### libvncserver Dependencies
 
-VNC 构建包含以下静态链接的依赖：
-- libjpeg-turbo (无 SIMD)
+VNC build includes the following statically linked dependencies:
+- libjpeg-turbo (no SIMD)
 - libpng
 - LZO 2.10
 
-## 许可证
+## License
 
-构建脚本遵循 MIT 许可证。各依赖库遵循其各自的许可证：
+Build scripts are licensed under the MIT License. Each dependency library follows its respective license:
 - OpenSSL: [Apache License 2.0](https://github.com/openssl/openssl/blob/master/LICENSE.txt)
 - libssh: [LGPL 2.1](https://gitlab.com/libssh/libssh-mirror/-/blob/master/COPYING)
 - libvncserver: [GPL 2.0](https://github.com/LibVNC/libvncserver/blob/master/COPYING)
@@ -271,8 +274,8 @@ VNC 构建包含以下静态链接的依赖：
 
 <div align="center">
 
-**为 [FoxTerm](https://foxterm.app) 打造**
+**Built for [FoxTerm](https://foxterm.app)**
 
-*安全 · 高效 · 自动化*
+*Secure · Efficient · Automated*
 
 </div>

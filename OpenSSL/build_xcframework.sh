@@ -9,10 +9,10 @@ OPENSSL_VERSION="openssl-4.1.0"
 MACOS_TARGET="14.0"
 IOS_TARGET="17.0"
 
-WORK_DIR="$(pwd)/openssl_xcframework_build"
+WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/openssl_xcframework_build"
 SOURCE_DIR="${WORK_DIR}/sources"
 BUILD_DIR="${WORK_DIR}/build"
-OUTPUT_DIR="$(pwd)/xcframework"
+OUTPUT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/xcframework"
 
 mkdir -p "${SOURCE_DIR}" "${BUILD_DIR}" "${OUTPUT_DIR}"
 

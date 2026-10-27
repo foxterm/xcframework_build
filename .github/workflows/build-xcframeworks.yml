@@ -39,7 +39,7 @@ jobs:
         id: openssl-cache
         uses: actions/cache@v6
         with:
-          path: openssl_xcframework_build/
+          path: OpenSSL/openssl_xcframework_build/
           key: openssl-${{ env.OPENSSL_VERSION_TAG }}-macos15
 
       - name: Cache OpenSSL sources
@@ -51,16 +51,16 @@ jobs:
       - name: Build OpenSSL
         if: (inputs.build_libs == 'all' || contains(inputs.build_libs, 'openssl')) && steps.openssl-cache.outputs.cache-hit != 'true'
         run: |
-          rm -rf openssl_xcframework_build/build openssl_xcframework_build/xcframework
-          mkdir -p openssl_xcframework_build
+          rm -rf OpenSSL/openssl_xcframework_build/build OpenSSL/openssl_xcframework_build/xcframework OpenSSL/xcframework
+          mkdir -p OpenSSL/openssl_xcframework_build
           cd OpenSSL && bash build_xcframework.sh
 
       - name: Report OpenSSL sizes
         if: always()
         run: |
           echo "=== OpenSSL xcframework ==="
-          ls -lh openssl_xcframework_build/xcframework/OpenSSL.xcframework/ 2>/dev/null || echo "Not found"
-          for d in openssl_xcframework_build/build/install_*/; do
+          ls -lh OpenSSL/xcframework/OpenSSL.xcframework/ 2>/dev/null || echo "Not found"
+          for d in OpenSSL/openssl_xcframework_build/build/install_*/; do
             [ -d "$d" ] && echo "$d: $(du -sh "$d" | cut -f1)"
           done
 
@@ -78,7 +78,7 @@ jobs:
         if: inputs.build_libs == 'all' || contains(inputs.build_libs, 'cssh')
         working-directory: ./CSSH
         env:
-          OPENSSL_BUILD_DIR: ${{ github.workspace }}/openssl_xcframework_build
+          OPENSSL_BUILD_DIR: ${{ github.workspace }}/OpenSSL/openssl_xcframework_build
         run: |
           echo "OPENSSL_BUILD_DIR=${OPENSSL_BUILD_DIR}"
           ls -la "${OPENSSL_BUILD_DIR}/build/" || echo "OpenSSL build dir not found!"
@@ -100,7 +100,7 @@ jobs:
         if: inputs.build_libs == 'all' || contains(inputs.build_libs, 'vnc')
         working-directory: ./VNC
         env:
-          OPENSSL_BUILD_DIR: ${{ github.workspace }}/openssl_xcframework_build
+          OPENSSL_BUILD_DIR: ${{ github.workspace }}/OpenSSL/openssl_xcframework_build
         run: |
           echo "OPENSSL_BUILD_DIR=${OPENSSL_BUILD_DIR}"
           bash build_xcframework.sh
@@ -112,12 +112,12 @@ jobs:
         if: always()
         run: |
           mkdir -p xcframeworks
-          [ -d "openssl_xcframework_build/xcframework/OpenSSL.xcframework" ] && \
-            cp -R openssl_xcframework_build/xcframework/OpenSSL.xcframework xcframeworks/
-          [ -d "xcframework/libssh.xcframework" ] && \
-            cp -R xcframework/libssh.xcframework xcframeworks/
-          [ -d "xcframework/libvncclient.xcframework" ] && \
-            cp -R xcframework/libvncclient.xcframework xcframeworks/
+          [ -d "OpenSSL/xcframework/OpenSSL.xcframework" ] && \
+            cp -R OpenSSL/xcframework/OpenSSL.xcframework xcframeworks/
+          [ -d "CSSH/xcframework/libssh.xcframework" ] && \
+            cp -R CSSH/xcframework/libssh.xcframework xcframeworks/
+          [ -d "VNC/xcframework/libvncclient.xcframework" ] && \
+            cp -R VNC/xcframework/libvncclient.xcframework xcframeworks/
           echo "=== Built xcframeworks ==="
           ls -la xcframeworks/
 

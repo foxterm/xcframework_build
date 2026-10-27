@@ -4,4 +4,7 @@ xcframeworks/
 .DS_Store
 test/
 dist/
-openssl_xcframework_build/
+OpenSSL/openssl_xcframework_build/
+OpenSSL/xcframework/
+CSSH/xcframework/
+VNC/xcframework/

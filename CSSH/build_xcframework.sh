@@ -10,13 +10,15 @@ LIBSSH_VERSION="0.12.2"
 MACOS_TARGET="14.0"
 IOS_TARGET="17.0"
 
-WORK_DIR="$(pwd)/xcframework_build"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORK_DIR="${SCRIPT_DIR}/xcframework_build"
 SOURCE_DIR="${WORK_DIR}/sources"
 BUILD_DIR="${WORK_DIR}/build"
-OUTPUT_DIR="$(pwd)/xcframework"
+OUTPUT_DIR="${SCRIPT_DIR}/xcframework"
 
 # OpenSSL 预编译产物路径 (CI 通过环境变量覆盖，本地运行使用默认相对路径)
-OPENSSL_BUILD_DIR="${OPENSSL_BUILD_DIR:-$(cd "$(pwd)/../OpenSSL/openssl_xcframework_build" && pwd)}"
+OPENSSL_BUILD_DIR="${OPENSSL_BUILD_DIR:-${SCRIPT_DIR}/../openssl_xcframework_build}"
+OPENSSL_BUILD_DIR="$(cd "${OPENSSL_BUILD_DIR}" && pwd)"
 
 mkdir -p "${SOURCE_DIR}" "${BUILD_DIR}" "${OUTPUT_DIR}"
 

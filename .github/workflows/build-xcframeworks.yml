@@ -124,10 +124,10 @@ jobs:
       - name: Push OpenSSL to foxterm/OpenSSL
         if: success() && hashFiles('xcframeworks/OpenSSL.xcframework') != ''
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_PAT: ${{ secrets.GH_PAT }}
         run: |
           cd /tmp
-          git clone --depth 1 https://x-access-token:${GH_TOKEN}@github.com/foxterm/OpenSSL.git
+          git clone --depth 1 https://x-access-token:${GH_PAT}@github.com/foxterm/OpenSSL.git
           cd OpenSSL
           rm -rf OpenSSL.xcframework
           cp -R ${GITHUB_WORKSPACE}/xcframeworks/OpenSSL.xcframework .
@@ -145,11 +145,11 @@ jobs:
       - name: Push libssh to foxterm/SSH
         if: success() && hashFiles('xcframeworks/libssh.xcframework') != ''
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_PAT: ${{ secrets.GH_PAT }}
         run: |
           LIBSSH_VERSION=$(grep -E '^LIBSSH_VERSION=' ${GITHUB_WORKSPACE}/CSSH/build_xcframework.sh | head -1 | sed 's/.*"\(.*\)".*/\1/')
           cd /tmp
-          git clone --depth 1 https://x-access-token:${GH_TOKEN}@github.com/foxterm/SSH.git
+          git clone --depth 1 https://x-access-token:${GH_PAT}@github.com/foxterm/SSH.git
           cd SSH
           rm -rf libssh.xcframework
           cp -R ${GITHUB_WORKSPACE}/xcframeworks/libssh.xcframework .
@@ -167,10 +167,10 @@ jobs:
       - name: Push libvncclient to foxterm/VNC
         if: success() && hashFiles('xcframeworks/libvncclient.xcframework') != ''
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_PAT: ${{ secrets.GH_PAT }}
         run: |
           cd /tmp
-          git clone --depth 1 https://x-access-token:${GH_TOKEN}@github.com/foxterm/VNC.git
+          git clone --depth 1 https://x-access-token:${GH_PAT}@github.com/foxterm/VNC.git
           cd VNC
           rm -rf libvncclient.xcframework
           cp -R ${GITHUB_WORKSPACE}/xcframeworks/libvncclient.xcframework .

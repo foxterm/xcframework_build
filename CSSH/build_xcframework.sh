@@ -6,7 +6,7 @@ export GIT_ADVICE_DETACHED_HEAD=false
 
 # ================= 配置区 =================
 FOX_TERM_VERSION="0.0.1"
-LIBSSH_VERSION="${LIBSSH_VERSION:-0.12.2}"
+LIBSSH_VERSION="0.12.2"
 MACOS_TARGET="14.0"
 IOS_TARGET="17.0"
 

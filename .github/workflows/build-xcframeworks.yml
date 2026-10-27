@@ -1,0 +1,133 @@
+name: Build XCFrameworks
+
+on:
+  workflow_call:
+    inputs:
+      build_libs:
+        description: 'Libraries to build: all, openssl, cssh, vnc, openssl+cssh, openssl+vnc'
+        default: 'all'
+        type: string
+  workflow_dispatch:
+    inputs:
+      build_libs:
+        description: 'Libraries to build: all, openssl, cssh, vnc, openssl+cssh, openssl+vnc'
+        default: 'all'
+        type: string
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: brew install cmake ninja libtool autoconf automake
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+
+      # ================================================================
+      # OpenSSL
+      # ================================================================
+      - name: Get OpenSSL version tag
+        if: inputs.build_libs == 'all' || contains(inputs.build_libs, 'openssl')
+        run: |
+          VERSION=$(grep -E '^OPENSSL_VERSION=' OpenSSL/build_xcframework.sh | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          echo "OPENSSL_VERSION_TAG=${VERSION}" >> "$GITHUB_ENV"
+          echo "OpenSSL version: ${VERSION}"
+
+      - name: Cache OpenSSL build
+        if: inputs.build_libs == 'all' || contains(inputs.build_libs, 'openssl')
+        id: openssl-cache
+        uses: actions/cache@v4
+        with:
+          path: openssl_xcframework_build/
+          key: openssl-${{ env.OPENSSL_VERSION_TAG }}-macos15
+
+      - name: Clean stale OpenSSL build (cache miss)
+        if: (inputs.build_libs == 'all' || contains(inputs.build_libs, 'openssl')) && steps.openssl-cache.outputs.cache-hit != 'true'
+        run: |
+          rm -rf openssl_xcframework_build/build openssl_xcframework_build/xcframework
+          mkdir -p openssl_xcframework_build
+
+      - name: Build OpenSSL
+        if: (inputs.build_libs == 'all' || contains(inputs.build_libs, 'openssl')) && steps.openssl-cache.outputs.cache-hit != 'true'
+        working-directory: ./OpenSSL
+        run: bash build_xcframework.sh
+
+      - name: Report OpenSSL sizes
+        if: always() && (inputs.build_libs == 'all' || contains(inputs.build_libs, 'openssl'))
+        run: |
+          echo "=== OpenSSL xcframework ==="
+          ls -lh openssl_xcframework_build/xcframework/OpenSSL.xcframework/ 2>/dev/null || echo "Not found"
+          echo ""
+          echo "=== Install dirs ==="
+          for d in openssl_xcframework_build/build/install_*/; do
+            [ -d "$d" ] && echo "$d: $(du -sh "$d" | cut -f1)"
+          done
+
+      # ================================================================
+      # CSSH (libssh)
+      # ================================================================
+      - name: Build CSSH (libssh)
+        if: inputs.build_libs == 'all' || contains(inputs.build_libs, 'cssh')
+        working-directory: ./CSSH
+        env:
+          OPENSSL_BUILD_DIR: ${{ github.workspace }}/openssl_xcframework_build
+        run: |
+          echo "OPENSSL_BUILD_DIR=${OPENSSL_BUILD_DIR}"
+          ls -la "${OPENSSL_BUILD_DIR}/build/" || echo "OpenSSL build dir not found!"
+          bash build_xcframework.sh
+
+      # ================================================================
+      # VNC (libvncserver)
+      # ================================================================
+      - name: Build VNC (libvncserver)
+        if: inputs.build_libs == 'all' || contains(inputs.build_libs, 'vnc')
+        working-directory: ./VNC
+        env:
+          OPENSSL_BUILD_DIR: ${{ github.workspace }}/openssl_xcframework_build
+        run: |
+          echo "OPENSSL_BUILD_DIR=${OPENSSL_BUILD_DIR}"
+          bash build_xcframework.sh
+
+      # ================================================================
+      # Upload artifacts
+      # ================================================================
+      - name: Collect xcframeworks
+        if: always()
+        run: |
+          mkdir -p xcframeworks
+          [ -d "openssl_xcframework_build/xcframework/OpenSSL.xcframework" ] && \
+            cp -R openssl_xcframework_build/xcframework/OpenSSL.xcframework xcframeworks/
+          [ -d "xcframework/libssh.xcframework" ] && \
+            cp -R xcframework/libssh.xcframework xcframeworks/
+          [ -d "xcframework/libvncclient.xcframework" ] && \
+            cp -R xcframework/libvncclient.xcframework xcframeworks/
+          echo "=== Built xcframeworks ==="
+          ls -la xcframeworks/
+
+      - name: Upload xcframeworks
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcframeworks
+          path: xcframeworks/
+          retention-days: 30
+
+      # ================================================================
+      # Size report
+      # ================================================================
+      - name: Final size report
+        if: always()
+        run: |
+          echo "=========================================="
+          echo "         XCFramework 体积报告"
+          echo "=========================================="
+          for xfw in xcframeworks/*.xcframework; do
+            [ -d "$xfw" ] || continue
+            name=$(basename "$xfw")
+            size=$(du -sh "$xfw" 2>/dev/null | cut -f1)
+            printf "%-30s %s\n" "$name" "$size"
+          done
+          echo "=========================================="

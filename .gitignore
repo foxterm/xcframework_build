@@ -1,0 +1,7 @@
+xcframework_build/
+xcframework/
+xcframeworks/
+.DS_Store
+test/
+dist/
+openssl_xcframework_build/

@@ -1,0 +1,170 @@
+name: Check Dependency Updates
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  check-updates:
+    runs-on: ubuntu-latest
+    outputs:
+      openssl_updated: ${{ steps.check.outputs.openssl_updated }}
+      libssh_updated: ${{ steps.check.outputs.libssh_updated }}
+      vnc_updated: ${{ steps.check.outputs.vnc_updated }}
+      openssl_version: ${{ steps.check.outputs.openssl_version }}
+      libssh_version: ${{ steps.check.outputs.libssh_version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for new versions
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          OPENSSL_UPDATED="false"
+          LIBSSH_UPDATED="false"
+          VNC_UPDATED="false"
+          OPENSSL_NEW_VERSION=""
+          LIBSSH_NEW_VERSION=""
+
+          # ========== 1. OpenSSL (GitHub Releases) ==========
+          echo "==> 检查 OpenSSL 最新版本..."
+          CURRENT_OPENSSL=$(grep -E '^OPENSSL_VERSION=' OpenSSL/build_xcframework.sh | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          echo "当前 OpenSSL 版本: ${CURRENT_OPENSSL}"
+
+          LATEST_OPENSSL=$(curl -fsSL "https://api.github.com/repos/openssl/openssl/tags?per_page=20" \
+            | python3 -c "
+          import json, sys
+          tags = json.load(sys.stdin)
+          for t in tags:
+              name = t['name']
+              if name.startswith('openssl-') and not any(x in name for x in ['alpha', 'beta', 'rc', 'pre']):
+                  print(name)
+                  break
+          ")
+
+          if [ -n "${LATEST_OPENSSL}" ] && [ "${CURRENT_OPENSSL}" != "${LATEST_OPENSSL}" ]; then
+            echo "发现新版本: ${LATEST_OPENSSL}"
+            sed -i.bak "s/OPENSSL_VERSION=\"${CURRENT_OPENSSL}\"/OPENSSL_VERSION=\"${LATEST_OPENSSL}\"/" OpenSSL/build_xcframework.sh
+            rm -f OpenSSL/build_xcframework.sh.bak
+            OPENSSL_UPDATED="true"
+            OPENSSL_NEW_VERSION="${LATEST_OPENSSL}"
+          else
+            echo "已是最新版本"
+          fi
+
+          # ========== 2. libssh (GitLab mirror) ==========
+          echo ""
+          echo "==> 检查 libssh 最新版本..."
+          CURRENT_LIBSSH=$(grep -E '^LIBSSH_VERSION=' CSSH/build_xcframework.sh | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          echo "当前 libssh 版本: ${CURRENT_LIBSSH}"
+
+          LATEST_LIBSSH=$(curl -fsSL "https://gitlab.com/api/v4/projects/libssh%2Flibssh-mirror/repository/tags?per_page=10&order_by=updated" \
+            | python3 -c "
+          import json, sys
+          tags = json.load(sys.stdin)
+          for t in tags:
+              name = t['name']
+              if name.startswith('libssh-') and not any(x in name.lower() for x in ['alpha', 'beta', 'rc', 'pre']):
+                  print(name.replace('libssh-', ''))
+                  break
+          " 2>/dev/null || echo "")
+
+          if [ -n "${LATEST_LIBSSH}" ] && [ "${CURRENT_LIBSSH}" != "${LATEST_LIBSSH}" ]; then
+            echo "发现新版本: ${LATEST_LIBSSH}"
+            sed -i.bak "s/LIBSSH_VERSION=\"${CURRENT_LIBSSH}\"/LIBSSH_VERSION=\"${LATEST_LIBSSH}\"/" CSSH/build_xcframework.sh
+            rm -f CSSH/build_xcframework.sh.bak
+            LIBSSH_UPDATED="true"
+            LIBSSH_NEW_VERSION="${LATEST_LIBSSH}"
+          else
+            echo "已是最新版本"
+          fi
+
+          # ========== 3. libvncserver (master branch) ==========
+          echo ""
+          echo "==> 检查 libvncserver master 分支更新..."
+
+          # 获取本地记录的 master commit hash
+          STORED_HASH=""
+          if [ -f "vnc_master_hash.txt" ]; then
+            STORED_HASH=$(cat vnc_master_hash.txt)
+          fi
+
+          LATEST_HASH=$(curl -fsSL "https://api.github.com/repos/LibVNC/libvncserver/commits/master" \
+            -H "Accept: application/vnd.github.v3.sha")
+
+          echo "本地记录 hash: ${STORED_HASH:-无}"
+          echo "远端最新 hash: ${LATEST_HASH}"
+
+          if [ -n "${LATEST_HASH}" ] && [ "${STORED_HASH}" != "${LATEST_HASH}" ]; then
+            echo "libvncserver master 有新提交"
+            echo "${LATEST_HASH}" > vnc_master_hash.txt
+            VNC_UPDATED="true"
+          else
+            echo "无新提交"
+          fi
+
+          # ========== 输出结果 ==========
+          echo ""
+          echo "=========================================="
+          echo "检查结果汇总："
+          echo "  OpenSSL: ${OPENSSL_UPDATED} ${OPENSSL_NEW_VERSION}"
+          echo "  libssh:  ${LIBSSH_UPDATED} ${LIBSSH_NEW_VERSION}"
+          echo "  VNC:     ${VNC_UPDATED}"
+          echo "=========================================="
+
+          echo "openssl_updated=${OPENSSL_UPDATED}" >> "$GITHUB_OUTPUT"
+          echo "libssh_updated=${LIBSSH_UPDATED}" >> "$GITHUB_OUTPUT"
+          echo "vnc_updated=${VNC_UPDATED}" >> "$GITHUB_OUTPUT"
+          echo "openssl_version=${OPENSSL_NEW_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "libssh_version=${LIBSSH_NEW_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Commit version updates
+        if: steps.check.outputs.openssl_updated == 'true' || steps.check.outputs.libssh_updated == 'true' || steps.check.outputs.vnc_updated == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          ADD_FILES=""
+          if [ "${{ steps.check.outputs.openssl_updated }}" == "true" ]; then
+            ADD_FILES="${ADD_FILES} OpenSSL/build_xcframework.sh"
+          fi
+          if [ "${{ steps.check.outputs.libssh_updated }}" == "true" ]; then
+            ADD_FILES="${ADD_FILES} CSSH/build_xcframework.sh"
+          fi
+          if [ "${{ steps.check.outputs.vnc_updated }}" == "true" ]; then
+            ADD_FILES="${ADD_FILES} vnc_master_hash.txt"
+          fi
+
+          git add ${ADD_FILES}
+
+          MSG="chore: update dependency versions ("
+          [ "${{ steps.check.outputs.openssl_updated }}" == "true" ] && MSG="${MSG}OpenSSL=${{ steps.check.outputs.openssl_version }} "
+          [ "${{ steps.check.outputs.libssh_updated }}" == "true" ] && MSG="${MSG}libssh=${{ steps.check.outputs.libssh_version }} "
+          [ "${{ steps.check.outputs.vnc_updated }}" == "true" ] && MSG="${MSG}libvncserver=master "
+          MSG="${MSG})"
+
+          git commit -m "${MSG}"
+          git push
+
+      - name: Trigger build workflow
+        if: steps.check.outputs.openssl_updated == 'true' || steps.check.outputs.libssh_updated == 'true' || steps.check.outputs.vnc_updated == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BUILD_LIBS="none"
+          [ "${{ steps.check.outputs.openssl_updated }}" == "true" ] && BUILD_LIBS="openssl"
+          if [ "${{ steps.check.outputs.libssh_updated }}" == "true" ]; then
+            [ "${BUILD_LIBS}" != "none" ] && BUILD_LIBS="${BUILD_LIBS},cssh" || BUILD_LIBS="cssh"
+          fi
+          if [ "${{ steps.check.outputs.vnc_updated }}" == "true" ]; then
+            [ "${BUILD_LIBS}" != "none" ] && BUILD_LIBS="${BUILD_LIBS},vnc" || BUILD_LIBS="vnc"
+          fi
+
+          echo "触发构建: ${BUILD_LIBS}"
+          gh workflow run build-xcframeworks.yml -f build_libs="${BUILD_LIBS}"

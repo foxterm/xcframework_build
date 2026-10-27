@@ -19,7 +19,7 @@ jobs:
       openssl_version: ${{ steps.check.outputs.openssl_version }}
       libssh_version: ${{ steps.check.outputs.libssh_version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Check for new versions
         id: check

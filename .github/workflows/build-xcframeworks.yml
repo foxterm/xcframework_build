@@ -18,7 +18,7 @@ jobs:
   build:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install build dependencies
         run: brew install cmake ninja libtool autoconf automake nasm
@@ -37,7 +37,7 @@ jobs:
 
       - name: Restore OpenSSL cache
         id: openssl-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: openssl_xcframework_build/
           key: openssl-${{ env.OPENSSL_VERSION_TAG }}-macos15

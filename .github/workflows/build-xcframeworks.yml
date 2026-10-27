@@ -106,13 +106,12 @@ jobs:
           bash build_xcframework.sh
 
       # ================================================================
-      # Upload artifacts
+      # Push to target repos
       # ================================================================
       - name: Collect xcframeworks
-        if: always()
+        if: success()
         run: |
           mkdir -p xcframeworks
-          rm -rf xcframeworks/OpenSSL.xcframework xcframeworks/libssh.xcframework xcframeworks/libvncclient.xcframework
           [ -d "OpenSSL/xcframework/OpenSSL.xcframework" ] && \
             cp -R OpenSSL/xcframework/OpenSSL.xcframework xcframeworks/
           [ -d "CSSH/xcframework/libssh.xcframework" ] && \
@@ -122,37 +121,69 @@ jobs:
           echo "=== Built xcframeworks ==="
           ls -la xcframeworks/
 
-      - name: Commit and push xcframeworks
-        if: success()
+      - name: Push OpenSSL to foxterm/OpenSSL
+        if: success() && hashFiles('xcframeworks/OpenSSL.xcframework') != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          cd /tmp
+          git clone --depth 1 https://x-access-token:${GH_TOKEN}@github.com/foxterm/OpenSSL.git
+          cd OpenSSL
+          rm -rf OpenSSL.xcframework
+          cp -R ${GITHUB_WORKSPACE}/xcframeworks/OpenSSL.xcframework .
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          
-          # 检查是否有变更
-          if git diff --quiet xcframeworks/ 2>/dev/null && [ -z "$(git ls-files --others --exclude-standard xcframeworks/)" ]; then
-            echo "xcframeworks 无变更，跳过提交"
-            exit 0
+          git add OpenSSL.xcframework
+          if ! git diff --cached --quiet; then
+            git commit -m "build: update OpenSSL.xcframework (${OPENSSL_VERSION_TAG})"
+            git push
+            echo "✓ 已推送 OpenSSL.xcframework 到 foxterm/OpenSSL"
+          else
+            echo "→ OpenSSL 无变更，跳过"
           fi
-          
-          git add xcframeworks/
-          
-          # 构建 commit message
-          MSG="build: update xcframeworks ("
-          [ -d "xcframeworks/OpenSSL.xcframework" ] && MSG="${MSG}OpenSSL=${OPENSSL_VERSION_TAG} "
-          [ -d "xcframeworks/libssh.xcframework" ] && MSG="${MSG}libssh "
-          [ -d "xcframeworks/libvncclient.xcframework" ] && MSG="${MSG}libvncclient "
-          MSG="${MSG})"
-          
-          git commit -m "${MSG}"
-          git push
 
-      - name: Upload xcframeworks
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: xcframeworks
-          path: xcframeworks/
-          retention-days: 30
+      - name: Push libssh to foxterm/SSH
+        if: success() && hashFiles('xcframeworks/libssh.xcframework') != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LIBSSH_VERSION=$(grep -E '^LIBSSH_VERSION=' ${GITHUB_WORKSPACE}/CSSH/build_xcframework.sh | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          cd /tmp
+          git clone --depth 1 https://x-access-token:${GH_TOKEN}@github.com/foxterm/SSH.git
+          cd SSH
+          rm -rf libssh.xcframework
+          cp -R ${GITHUB_WORKSPACE}/xcframeworks/libssh.xcframework .
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add libssh.xcframework
+          if ! git diff --cached --quiet; then
+            git commit -m "build: update libssh.xcframework (${LIBSSH_VERSION})"
+            git push
+            echo "✓ 已推送 libssh.xcframework 到 foxterm/SSH"
+          else
+            echo "→ libssh 无变更，跳过"
+          fi
+
+      - name: Push libvncclient to foxterm/VNC
+        if: success() && hashFiles('xcframeworks/libvncclient.xcframework') != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd /tmp
+          git clone --depth 1 https://x-access-token:${GH_TOKEN}@github.com/foxterm/VNC.git
+          cd VNC
+          rm -rf libvncclient.xcframework
+          cp -R ${GITHUB_WORKSPACE}/xcframeworks/libvncclient.xcframework .
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add libvncclient.xcframework
+          if ! git diff --cached --quiet; then
+            git commit -m "build: update libvncclient.xcframework"
+            git push
+            echo "✓ 已推送 libvncclient.xcframework 到 foxterm/VNC"
+          else
+            echo "→ libvncclient 无变更，跳过"
+          fi
 
       # ================================================================
       # Size report
@@ -163,10 +194,12 @@ jobs:
           echo "=========================================="
           echo "         XCFramework 体积报告"
           echo "=========================================="
-          for xfw in xcframeworks/*.xcframework; do
-            [ -d "$xfw" ] || continue
-            name=$(basename "$xfw")
-            size=$(du -sh "$xfw" 2>/dev/null | cut -f1)
-            printf "%-30s %s\n" "$name" "$size"
-          done
+          if [ -d "xcframeworks" ]; then
+            for xfw in xcframeworks/*.xcframework; do
+              [ -d "$xfw" ] || continue
+              name=$(basename "$xfw")
+              size=$(du -sh "$xfw" 2>/dev/null | cut -f1)
+              printf "%-30s %s\n" "$name" "$size"
+            done
+          fi
           echo "=========================================="

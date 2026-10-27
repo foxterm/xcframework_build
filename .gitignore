@@ -1,4 +1,5 @@
 xcframework_build/
+xcframeworks/
 .DS_Store
 test/
 dist/

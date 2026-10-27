@@ -111,16 +111,16 @@ jobs:
       - name: Collect xcframeworks
         if: always()
         run: |
-          mkdir -p xcframework
-          rm -rf xcframework/OpenSSL.xcframework xcframework/libssh.xcframework xcframework/libvncclient.xcframework
+          mkdir -p xcframeworks
+          rm -rf xcframeworks/OpenSSL.xcframework xcframeworks/libssh.xcframework xcframeworks/libvncclient.xcframework
           [ -d "OpenSSL/xcframework/OpenSSL.xcframework" ] && \
-            cp -R OpenSSL/xcframework/OpenSSL.xcframework xcframework/
+            cp -R OpenSSL/xcframework/OpenSSL.xcframework xcframeworks/
           [ -d "CSSH/xcframework/libssh.xcframework" ] && \
-            cp -R CSSH/xcframework/libssh.xcframework xcframework/
+            cp -R CSSH/xcframework/libssh.xcframework xcframeworks/
           [ -d "VNC/xcframework/libvncclient.xcframework" ] && \
-            cp -R VNC/xcframework/libvncclient.xcframework xcframework/
+            cp -R VNC/xcframework/libvncclient.xcframework xcframeworks/
           echo "=== Built xcframeworks ==="
-          ls -la xcframework/
+          ls -la xcframeworks/
 
       - name: Commit and push xcframeworks
         if: success()
@@ -129,18 +129,18 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           
           # 检查是否有变更
-          if git diff --quiet xcframework/ 2>/dev/null && [ -z "$(git ls-files --others --exclude-standard xcframework/)" ]; then
+          if git diff --quiet xcframeworks/ 2>/dev/null && [ -z "$(git ls-files --others --exclude-standard xcframeworks/)" ]; then
             echo "xcframeworks 无变更，跳过提交"
             exit 0
           fi
           
-          git add xcframework/
+          git add xcframeworks/
           
           # 构建 commit message
           MSG="build: update xcframeworks ("
-          [ -d "xcframework/OpenSSL.xcframework" ] && MSG="${MSG}OpenSSL=${OPENSSL_VERSION_TAG} "
-          [ -d "xcframework/libssh.xcframework" ] && MSG="${MSG}libssh "
-          [ -d "xcframework/libvncclient.xcframework" ] && MSG="${MSG}libvncclient "
+          [ -d "xcframeworks/OpenSSL.xcframework" ] && MSG="${MSG}OpenSSL=${OPENSSL_VERSION_TAG} "
+          [ -d "xcframeworks/libssh.xcframework" ] && MSG="${MSG}libssh "
+          [ -d "xcframeworks/libvncclient.xcframework" ] && MSG="${MSG}libvncclient "
           MSG="${MSG})"
           
           git commit -m "${MSG}"
@@ -151,7 +151,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: xcframeworks
-          path: xcframework/
+          path: xcframeworks/
           retention-days: 30
 
       # ================================================================
@@ -163,7 +163,7 @@ jobs:
           echo "=========================================="
           echo "         XCFramework 体积报告"
           echo "=========================================="
-          for xfw in xcframework/*.xcframework; do
+          for xfw in xcframeworks/*.xcframework; do
             [ -d "$xfw" ] || continue
             name=$(basename "$xfw")
             size=$(du -sh "$xfw" 2>/dev/null | cut -f1)

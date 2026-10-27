@@ -1,17 +1,14 @@
 # FoxTerm XCFramework 构建系统
 
-<div align="center">
+[English](README.md) | [中文文档](README_CN.md)
 
-**自动化编译 OpenSSL / libssh / libvncserver 为 Apple 平台 XCFramework**
+自动化编译 OpenSSL / libssh / libvncserver 为 Apple 平台 XCFramework — 每日自动检测依赖版本更新并推送到目标仓库。
 
-[English](README.md) | **中文文档**
+> 本库为 [FoxTerm](https://foxterm.app/) APP 专用核心组件，欢迎下载使用：[https://foxterm.app/](https://foxterm.app/)
 
 [![Build XCFrameworks](https://github.com/foxterm/xcframework_build/actions/workflows/build-xcframeworks.yml/badge.svg)](https://github.com/foxterm/xcframework_build/actions/workflows/build-xcframeworks.yml)
 [![Check Dependency Updates](https://github.com/foxterm/xcframework_build/actions/workflows/check-versions.yml/badge.svg)](https://github.com/foxterm/xcframework_build/actions/workflows/check-versions.yml)
 [![Platform](https://img.shields.io/badge/platform-iOS%2017%2B%20%7C%20macOS%2014%2B-blue)]()
-[![License](https://img.shields.io/badge/license-MIT-green)]()
-
-</div>
 
 ---
 
@@ -268,13 +265,3 @@ VNC 构建包含以下静态链接的依赖：
 - OpenSSL: [Apache License 2.0](https://github.com/openssl/openssl/blob/master/LICENSE.txt)
 - libssh: [LGPL 2.1](https://gitlab.com/libssh/libssh-mirror/-/blob/master/COPYING)
 - libvncserver: [GPL 2.0](https://github.com/LibVNC/libvncserver/blob/master/COPYING)
-
----
-
-<div align="center">
-
-**为 [FoxTerm](https://foxterm.app) 打造**
-
-*安全 · 高效 · 自动化*
-
-</div>

@@ -1,17 +1,14 @@
 # FoxTerm XCFramework Build System
 
-<div align="center">
+[English](README.md) | [中文文档](README_CN.md)
 
-**Automated compilation of OpenSSL / libssh / libvncserver into Apple platform XCFrameworks**
+Automated compilation of OpenSSL / libssh / libvncserver into Apple platform XCFrameworks — with daily dependency version checks and auto-push to target repositories.
 
-**[English](README.md)** | [中文文档](README_CN.md)
+> This library is a dedicated core component for the [FoxTerm](https://foxterm.app/) app. Download it here: [https://foxterm.app/](https://foxterm.app/)
 
 [![Build XCFrameworks](https://github.com/foxterm/xcframework_build/actions/workflows/build-xcframeworks.yml/badge.svg)](https://github.com/foxterm/xcframework_build/actions/workflows/build-xcframeworks.yml)
 [![Check Dependency Updates](https://github.com/foxterm/xcframework_build/actions/workflows/check-versions.yml/badge.svg)](https://github.com/foxterm/xcframework_build/actions/workflows/check-versions.yml)
 [![Platform](https://img.shields.io/badge/platform-iOS%2017%2B%20%7C%20macOS%2014%2B-blue)]()
-[![License](https://img.shields.io/badge/license-MIT-green)]()
-
-</div>
 
 ---
 
@@ -270,13 +267,3 @@ Build scripts are licensed under the MIT License. Each dependency library follow
 - OpenSSL: [Apache License 2.0](https://github.com/openssl/openssl/blob/master/LICENSE.txt)
 - libssh: [LGPL 2.1](https://gitlab.com/libssh/libssh-mirror/-/blob/master/COPYING)
 - libvncserver: [GPL 2.0](https://github.com/LibVNC/libvncserver/blob/master/COPYING)
-
----
-
-<div align="center">
-
-**Built for [FoxTerm](https://foxterm.app)**
-
-*Secure · Efficient · Automated*
-
-</div>

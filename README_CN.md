@@ -2,7 +2,7 @@
 
 [English](README.md) | [中文文档](README_CN.md)
 
-自动化编译 OpenSSL / libssh / libvncserver 为 Apple 平台 XCFramework — 每日自动检测依赖版本更新并推送到目标仓库。
+自动化编译 OpenSSL / libssh / libvncserver / llama.cpp 为 Apple 平台 XCFramework — 每日自动检测依赖版本更新并推送到目标仓库。
 
 > 本库为 [FoxTerm](https://foxterm.app/) APP 专用核心组件，欢迎下载使用：[https://foxterm.app/](https://foxterm.app/)
 
@@ -20,8 +20,8 @@ graph LR
     B --> C["🚀 推送到\n目标仓库"]
 
     A -.->|API| A1["OpenSSL · GitLab · GitHub"]
-    B -.->|产物| B1["OpenSSL · CSSH · VNC"]
-    C -.->|目标| C1["foxterm/OpenSSL · SSH · VNC"]
+    B -.->|产物| B1["OpenSSL · CSSH · VNC · Llama"]
+    C -.->|目标| C1["foxterm/OpenSSL · SSH · VNC · Llama"]
 
     style A fill:#e8f5e9,stroke:#4caf50,color:#1b5e20
     style B fill:#e3f2fd,stroke:#2196f3,color:#0d47a1
@@ -34,6 +34,7 @@ graph LR
 | `OpenSSL.xcframework` | [openssl/openssl](https://github.com/openssl/openssl) | macOS arm64/x86_64, iOS arm64, Simulator arm64 | [foxterm/OpenSSL](https://github.com/foxterm/OpenSSL) |
 | `libssh.xcframework` | [libssh/libssh](https://gitlab.com/libssh/libssh-mirror) | macOS arm64/x86_64, iOS arm64, Simulator arm64 | [foxterm/SSH](https://github.com/foxterm/SSH) |
 | `libvncclient.xcframework` | [LibVNC/libvncserver](https://github.com/LibVNC/libvncserver) | macOS arm64/x86_64, iOS arm64, Simulator arm64 | [foxterm/VNC](https://github.com/foxterm/VNC) |
+| `llama.xcframework` | [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp) | macOS arm64/x86_64, iOS arm64, Simulator arm64 | [foxterm/Llama](https://github.com/foxterm/Llama) |
 
 ## 核心特性
 
@@ -58,6 +59,7 @@ OpenSSL 编译采用激进的裁剪策略，仅保留 FoxTerm 实际使用的 AP
 | OpenSSL | GitHub Tags API | `api.github.com/repos/openssl/openssl/tags` |
 | libssh | GitLab Tags API | `gitlab.com/api/v4/projects/libssh%2Flibssh-mirror/repository/tags` |
 | libvncserver | Commit SHA 对比 | `api.github.com/repos/LibVNC/libvncserver/commits/master` |
+| llama.cpp | GitHub Latest Release | `api.github.com/repos/ggml-org/llama.cpp/releases/latest` |
 
 发现新版本时自动：
 1. 更新构建脚本中的版本号
@@ -70,10 +72,12 @@ OpenSSL 编译采用激进的裁剪策略，仅保留 FoxTerm 实际使用的 AP
 graph TD
     subgraph "GitHub Actions 缓存"
         O["OpenSSL 构建缓存\nKey: openssl-{version}-macos15\n→ 版本不变时跳过编译，直接使用缓存"]
+        L["Llama 构建缓存\nKey: llama-{version}-macos15\n→ 版本不变时跳过编译，直接使用缓存"]
         S["源码缓存\nKey: {lib}-sources-{hash}\n→ 避免重复克隆/下载源码"]
     end
 
     style O fill:#e3f2fd,stroke:#2196f3,color:#0d47a1
+    style L fill:#e3f2fd,stroke:#2196f3,color:#0d47a1
     style S fill:#e8f5e9,stroke:#4caf50,color:#1b5e20
 ```
 
@@ -103,10 +107,16 @@ graph TD
 │   ├─ 编译 (4 个架构)
 │   └─ 打包 xcframework
 │
+├─▶ 构建 Llama (llama.cpp)
+│   ├─ CMake + Xcode Generator 编译 (macOS 通用 / iOS / Simulator)
+│   ├─ 合并 llama + ggml 系列静态库
+│   └─ 打包 xcframework
+│
 └─▶ 推送到目标仓库
     ├─ foxterm/OpenSSL ← OpenSSL.xcframework
     ├─ foxterm/SSH ← libssh.xcframework
-    └─ foxterm/VNC ← libvncclient.xcframework
+    ├─ foxterm/VNC ← libvncclient.xcframework
+    └─ foxterm/Llama ← llama.xcframework
 ```
 
 ## 手动触发构建
@@ -128,6 +138,9 @@ gh workflow run build-xcframeworks.yml -R foxterm/xcframework_build -f build_lib
 
 # 仅 VNC (需要 OpenSSL 缓存)
 gh workflow run build-xcframeworks.yml -R foxterm/xcframework_build -f build_libs=vnc
+
+# 仅 Llama (独立构建，无需 OpenSSL)
+gh workflow run build-xcframeworks.yml -R foxterm/xcframework_build -f build_libs=llama
 ```
 
 ## 本地构建
@@ -165,6 +178,13 @@ cd VNC
 bash build_xcframework.sh
 ```
 
+### 编译 Llama (llama.cpp)
+
+```bash
+cd Llama
+bash build_xcframework.sh
+```
+
 ## 仓库结构
 
 ```
@@ -182,6 +202,9 @@ xcframework_build/
 ├── VNC/
 │   ├── build_xcframework.sh          # libvncserver 构建脚本
 │   └── xcframework_build/            # 构建产物 (gitignored)
+├── Llama/
+│   ├── build_xcframework.sh          # llama.cpp 构建脚本
+│   └── llama_xcframework_build/      # 构建产物 (gitignored)
 ├── vnc_master_hash.txt               # libvncserver master 分支追踪
 ├── README.md                         # 英文文档
 └── README_CN.md                      # 中文文档
@@ -195,6 +218,7 @@ xcframework_build/
 |------|------|--------|
 | `OPENSSL_VERSION` | OpenSSL 版本标签 | `openssl-4.1.0` |
 | `LIBSSH_VERSION` | libssh 版本号 | `0.12.2` |
+| `LLAMA_VERSION` | llama.cpp 版本标签 | `v0.8.0` |
 | `OPENSSL_BUILD_DIR` | OpenSSL 产物路径 (CI 用) | 脚本相对路径 |
 
 示例：
@@ -212,6 +236,7 @@ PAT 需要 `repo` 权限，用于推送构建产物到：
 - `foxterm/OpenSSL`
 - `foxterm/SSH`
 - `foxterm/VNC`
+- `foxterm/Llama`
 
 ## 技术细节
 
@@ -249,9 +274,20 @@ VNC 构建包含以下静态链接的依赖：
 - libpng
 - LZO 2.10
 
+### llama.cpp 构建方式
+
+Llama 构建与官方 [build-xcframework.sh](https://github.com/ggml-org/llama.cpp/blob/master/build-xcframework.sh) 保持一致：
+
+- 编译选项：CMake + Xcode Generator，`Release` 配置
+- 后端：`GGML_METAL=ON`（Apple GPU）+ `GGML_BLAS=ON`（Accelerate）+ CPU 后端
+- `GGML_METAL_EMBED_LIBRARY=ON`：将 `.metallib` 嵌入静态库，消费方无需外部资源
+- 单库合并：`libllama.a + libggml.a + libggml-base.a + libggml-cpu.a + libggml-metal.a + libggml-blas.a + libmtmd.a + libvendor-hash.a → libllama.a`
+- 裁剪：`LLAMA_BUILD_COMMON/TOOLS/TESTS/EXAMPLES/SERVER/APP=OFF`，`GGML_NATIVE=OFF`，`GGML_OPENMP=OFF`，`LLAMA_OPENSSL=OFF`
+
 ## 许可证
 
 构建脚本遵循 MIT 许可证。各依赖库遵循其各自的许可证：
 - OpenSSL: [Apache License 2.0](https://github.com/openssl/openssl/blob/master/LICENSE.txt)
 - libssh: [LGPL 2.1](https://gitlab.com/libssh/libssh-mirror/-/blob/master/COPYING)
 - libvncserver: [GPL 2.0](https://github.com/LibVNC/libvncserver/blob/master/COPYING)
+- llama.cpp: [MIT](https://github.com/ggml-org/llama.cpp/blob/master/LICENSE)

@@ -16,8 +16,10 @@ jobs:
       openssl_updated: ${{ steps.check.outputs.openssl_updated }}
       libssh_updated: ${{ steps.check.outputs.libssh_updated }}
       vnc_updated: ${{ steps.check.outputs.vnc_updated }}
+      llama_updated: ${{ steps.check.outputs.llama_updated }}
       openssl_version: ${{ steps.check.outputs.openssl_version }}
       libssh_version: ${{ steps.check.outputs.libssh_version }}
+      llama_version: ${{ steps.check.outputs.llama_version }}
     steps:
       - uses: actions/checkout@v5
 
@@ -29,8 +31,10 @@ jobs:
           OPENSSL_UPDATED="false"
           LIBSSH_UPDATED="false"
           VNC_UPDATED="false"
+          LLAMA_UPDATED="false"
           OPENSSL_NEW_VERSION=""
           LIBSSH_NEW_VERSION=""
+          LLAMA_NEW_VERSION=""
 
           # ========== 1. OpenSSL (GitHub Releases) ==========
           echo "==> 检查 OpenSSL 最新版本..."
@@ -109,6 +113,29 @@ jobs:
             echo "无新提交"
           fi
 
+          # ========== 4. llama.cpp (GitHub Latest Release) ==========
+          echo ""
+          echo "==> 检查 llama.cpp 最新版本..."
+          CURRENT_LLAMA=$(grep -E '^LLAMA_VERSION=' Llama/build_xcframework.sh | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          echo "当前 llama.cpp 版本: ${CURRENT_LLAMA}"
+
+          LATEST_LLAMA=$(curl -fsSL "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest" \
+            | python3 -c "
+          import json, sys
+          r = json.load(sys.stdin)
+          print(r.get('tag_name', ''))
+          ")
+
+          if [ -n "${LATEST_LLAMA}" ] && [ "${CURRENT_LLAMA}" != "${LATEST_LLAMA}" ]; then
+            echo "发现新版本: ${LATEST_LLAMA}"
+            sed -i.bak "s/LLAMA_VERSION=\"${CURRENT_LLAMA}\"/LLAMA_VERSION=\"${LATEST_LLAMA}\"/" Llama/build_xcframework.sh
+            rm -f Llama/build_xcframework.sh.bak
+            LLAMA_UPDATED="true"
+            LLAMA_NEW_VERSION="${LATEST_LLAMA}"
+          else
+            echo "已是最新版本"
+          fi
+
           # ========== 输出结果 ==========
           echo ""
           echo "=========================================="
@@ -116,16 +143,19 @@ jobs:
           echo "  OpenSSL: ${OPENSSL_UPDATED} ${OPENSSL_NEW_VERSION}"
           echo "  libssh:  ${LIBSSH_UPDATED} ${LIBSSH_NEW_VERSION}"
           echo "  VNC:     ${VNC_UPDATED}"
+          echo "  Llama:   ${LLAMA_UPDATED} ${LLAMA_NEW_VERSION}"
           echo "=========================================="
 
           echo "openssl_updated=${OPENSSL_UPDATED}" >> "$GITHUB_OUTPUT"
           echo "libssh_updated=${LIBSSH_UPDATED}" >> "$GITHUB_OUTPUT"
           echo "vnc_updated=${VNC_UPDATED}" >> "$GITHUB_OUTPUT"
+          echo "llama_updated=${LLAMA_UPDATED}" >> "$GITHUB_OUTPUT"
           echo "openssl_version=${OPENSSL_NEW_VERSION}" >> "$GITHUB_OUTPUT"
           echo "libssh_version=${LIBSSH_NEW_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "llama_version=${LLAMA_NEW_VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Commit version updates
-        if: steps.check.outputs.openssl_updated == 'true' || steps.check.outputs.libssh_updated == 'true' || steps.check.outputs.vnc_updated == 'true'
+        if: steps.check.outputs.openssl_updated == 'true' || steps.check.outputs.libssh_updated == 'true' || steps.check.outputs.vnc_updated == 'true' || steps.check.outputs.llama_updated == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -140,6 +170,9 @@ jobs:
           if [ "${{ steps.check.outputs.vnc_updated }}" == "true" ]; then
             ADD_FILES="${ADD_FILES} vnc_master_hash.txt"
           fi
+          if [ "${{ steps.check.outputs.llama_updated }}" == "true" ]; then
+            ADD_FILES="${ADD_FILES} Llama/build_xcframework.sh"
+          fi
 
           git add ${ADD_FILES}
 
@@ -147,13 +180,14 @@ jobs:
           [ "${{ steps.check.outputs.openssl_updated }}" == "true" ] && MSG="${MSG}OpenSSL=${{ steps.check.outputs.openssl_version }} "
           [ "${{ steps.check.outputs.libssh_updated }}" == "true" ] && MSG="${MSG}libssh=${{ steps.check.outputs.libssh_version }} "
           [ "${{ steps.check.outputs.vnc_updated }}" == "true" ] && MSG="${MSG}libvncserver=master "
+          [ "${{ steps.check.outputs.llama_updated }}" == "true" ] && MSG="${MSG}llama=${{ steps.check.outputs.llama_version }} "
           MSG="${MSG})"
 
           git commit -m "${MSG}"
           git push
 
       - name: Trigger build workflow
-        if: steps.check.outputs.openssl_updated == 'true' || steps.check.outputs.libssh_updated == 'true' || steps.check.outputs.vnc_updated == 'true'
+        if: steps.check.outputs.openssl_updated == 'true' || steps.check.outputs.libssh_updated == 'true' || steps.check.outputs.vnc_updated == 'true' || steps.check.outputs.llama_updated == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -164,6 +198,9 @@ jobs:
           fi
           if [ "${{ steps.check.outputs.vnc_updated }}" == "true" ]; then
             [ "${BUILD_LIBS}" != "none" ] && BUILD_LIBS="${BUILD_LIBS},vnc" || BUILD_LIBS="vnc"
+          fi
+          if [ "${{ steps.check.outputs.llama_updated }}" == "true" ]; then
+            [ "${BUILD_LIBS}" != "none" ] && BUILD_LIBS="${BUILD_LIBS},llama" || BUILD_LIBS="llama"
           fi
 
           echo "触发构建: ${BUILD_LIBS}"

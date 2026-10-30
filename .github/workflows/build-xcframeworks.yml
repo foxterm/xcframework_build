@@ -4,13 +4,13 @@ on:
   workflow_call:
     inputs:
       build_libs:
-        description: 'Libraries to build: all, openssl, cssh, vnc, openssl+cssh, openssl+vnc'
+        description: 'Libraries to build: all, openssl, cssh, vnc, llama, openssl+cssh, openssl+vnc'
         default: 'all'
         type: string
   workflow_dispatch:
     inputs:
       build_libs:
-        description: 'Libraries to build: all, openssl, cssh, vnc, openssl+cssh, openssl+vnc'
+        description: 'Libraries to build: all, openssl, cssh, vnc, llama, openssl+cssh, openssl+vnc'
         default: 'all'
         type: string
 
@@ -106,6 +106,44 @@ jobs:
           bash build_xcframework.sh
 
       # ================================================================
+      # Llama (llama.cpp) — 独立构建，不依赖 OpenSSL
+      # ================================================================
+      - name: Get Llama version tag
+        run: |
+          VERSION=$(grep -E '^LLAMA_VERSION=' Llama/build_xcframework.sh | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          echo "LLAMA_VERSION_TAG=${VERSION}" >> "$GITHUB_ENV"
+          echo "Llama version: ${VERSION}"
+
+      - name: Restore Llama cache
+        id: llama-cache
+        uses: actions/cache@v6
+        with:
+          path: Llama/llama_xcframework_build/
+          key: llama-${{ env.LLAMA_VERSION_TAG }}-macos15
+
+      - name: Cache Llama sources
+        uses: actions/cache@v6
+        with:
+          path: Llama/llama_xcframework_build/sources/
+          key: llama-sources-${{ env.LLAMA_VERSION_TAG }}
+
+      - name: Build Llama (llama.cpp)
+        if: (inputs.build_libs == 'all' || contains(inputs.build_libs, 'llama')) && steps.llama-cache.outputs.cache-hit != 'true'
+        run: |
+          rm -rf Llama/llama_xcframework_build/build Llama/llama_xcframework_build/xcframework Llama/xcframework
+          mkdir -p Llama/llama_xcframework_build
+          cd Llama && bash build_xcframework.sh
+
+      - name: Report Llama sizes
+        if: always()
+        run: |
+          echo "=== Llama xcframework ==="
+          ls -lh Llama/xcframework/llama.xcframework/ 2>/dev/null || echo "Not found"
+          for d in Llama/llama_xcframework_build/build/llama_*/; do
+            [ -d "$d" ] && echo "$d: $(du -sh "$d" | cut -f1)"
+          done
+
+      # ================================================================
       # Push to target repos
       # ================================================================
       - name: Collect xcframeworks
@@ -118,6 +156,8 @@ jobs:
             cp -R CSSH/xcframework/libssh.xcframework xcframeworks/
           [ -d "VNC/xcframework/libvncclient.xcframework" ] && \
             cp -R VNC/xcframework/libvncclient.xcframework xcframeworks/
+          [ -d "Llama/xcframework/llama.xcframework" ] && \
+            cp -R Llama/xcframework/llama.xcframework xcframeworks/
           echo "=== Built xcframeworks ==="
           ls -la xcframeworks/
 
@@ -183,6 +223,27 @@ jobs:
             echo "✓ 已推送 libvncclient.xcframework 到 foxterm/VNC"
           else
             echo "→ libvncclient 无变更，跳过"
+          fi
+
+      - name: Push llama to foxterm/Llama
+        if: success() && hashFiles('xcframeworks/llama.xcframework') != ''
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          cd /tmp
+          git clone --depth 1 https://x-access-token:${GH_PAT}@github.com/foxterm/Llama.git
+          cd Llama
+          rm -rf llama.xcframework
+          cp -R ${GITHUB_WORKSPACE}/xcframeworks/llama.xcframework .
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add llama.xcframework
+          if ! git diff --cached --quiet; then
+            git commit -m "build: update llama.xcframework (${LLAMA_VERSION_TAG})"
+            git push
+            echo "✓ 已推送 llama.xcframework 到 foxterm/Llama"
+          else
+            echo "→ llama 无变更，跳过"
           fi
 
       # ================================================================

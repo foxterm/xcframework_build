@@ -2,7 +2,7 @@
 
 [English](README.md) | [中文文档](README_CN.md)
 
-Automated compilation of OpenSSL / libssh / libvncserver into Apple platform XCFrameworks — with daily dependency version checks and auto-push to target repositories.
+Automated compilation of OpenSSL / libssh / libvncserver / llama.cpp into Apple platform XCFrameworks — with daily dependency version checks and auto-push to target repositories.
 
 > This library is a dedicated core component for the [FoxTerm](https://foxterm.app/) app. Download it here: [https://foxterm.app/](https://foxterm.app/)
 
@@ -20,8 +20,8 @@ graph LR
     B --> C["🚀 Push to\nRepositories"]
 
     A -.->|APIs| A1["OpenSSL · GitLab · GitHub"]
-    B -.->|Artifacts| B1["OpenSSL · CSSH · VNC"]
-    C -.->|Targets| C1["foxterm/OpenSSL · SSH · VNC"]
+    B -.->|Artifacts| B1["OpenSSL · CSSH · VNC · Llama"]
+    C -.->|Targets| C1["foxterm/OpenSSL · SSH · VNC · Llama"]
 
     style A fill:#e8f5e9,stroke:#4caf50,color:#1b5e20
     style B fill:#e3f2fd,stroke:#2196f3,color:#0d47a1
@@ -35,6 +35,7 @@ graph LR
 | `OpenSSL.xcframework` | [openssl/openssl](https://github.com/openssl/openssl) | macOS arm64/x86_64, iOS arm64, Simulator arm64 | [foxterm/OpenSSL](https://github.com/foxterm/OpenSSL) |
 | `libssh.xcframework` | [libssh/libssh](https://gitlab.com/libssh/libssh-mirror) | macOS arm64/x86_64, iOS arm64, Simulator arm64 | [foxterm/SSH](https://github.com/foxterm/SSH) |
 | `libvncclient.xcframework` | [LibVNC/libvncserver](https://github.com/LibVNC/libvncserver) | macOS arm64/x86_64, iOS arm64, Simulator arm64 | [foxterm/VNC](https://github.com/foxterm/VNC) |
+| `llama.xcframework` | [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp) | macOS arm64/x86_64, iOS arm64, Simulator arm64 | [foxterm/Llama](https://github.com/foxterm/Llama) |
 
 ## Core Features
 
@@ -59,6 +60,7 @@ Automatically checks for dependency updates daily at UTC 00:00:
 | OpenSSL | GitHub Tags API | `api.github.com/repos/openssl/openssl/tags` |
 | libssh | GitLab Tags API | `gitlab.com/api/v4/projects/libssh%2Flibssh-mirror/repository/tags` |
 | libvncserver | Commit SHA Comparison | `api.github.com/repos/LibVNC/libvncserver/commits/master` |
+| llama.cpp | GitHub Latest Release | `api.github.com/repos/ggml-org/llama.cpp/releases/latest` |
 
 When new versions are detected, automatically:
 1. Updates version numbers in build scripts
@@ -71,10 +73,12 @@ When new versions are detected, automatically:
 graph TD
     subgraph "GitHub Actions Cache"
         O["OpenSSL Build Cache\nKey: openssl-{version}-macos15\n→ Skip compilation when version unchanged"]
+        L["Llama Build Cache\nKey: llama-{version}-macos15\n→ Skip compilation when version unchanged"]
         S["Source Code Cache\nKey: {lib}-sources-{hash}\n→ Avoid repeated cloning/downloading"]
     end
 
     style O fill:#e3f2fd,stroke:#2196f3,color:#0d47a1
+    style L fill:#e3f2fd,stroke:#2196f3,color:#0d47a1
     style S fill:#e8f5e9,stroke:#4caf50,color:#1b5e20
 ```
 
@@ -104,10 +108,16 @@ Build XCFrameworks Workflow
 │   ├─ Compile (4 architectures)
 │   └─ Package xcframework
 │
+├─▶ Build Llama (llama.cpp)
+│   ├─ CMake + Xcode Generator (macOS universal / iOS / Simulator)
+│   ├─ Merge llama + ggml static libraries
+│   └─ Package xcframework
+│
 └─▶ Push to Target Repos
     ├─ foxterm/OpenSSL ← OpenSSL.xcframework
     ├─ foxterm/SSH ← libssh.xcframework
-    └─ foxterm/VNC ← libvncclient.xcframework
+    ├─ foxterm/VNC ← libvncclient.xcframework
+    └─ foxterm/Llama ← llama.xcframework
 ```
 
 ## Manual Build Trigger
@@ -129,6 +139,9 @@ gh workflow run build-xcframeworks.yml -R foxterm/xcframework_build -f build_lib
 
 # VNC only (requires OpenSSL cache)
 gh workflow run build-xcframeworks.yml -R foxterm/xcframework_build -f build_libs=vnc
+
+# Llama only (standalone, no OpenSSL needed)
+gh workflow run build-xcframeworks.yml -R foxterm/xcframework_build -f build_libs=llama
 ```
 
 ## Local Build
@@ -166,6 +179,13 @@ cd VNC
 bash build_xcframework.sh
 ```
 
+### Build Llama (llama.cpp)
+
+```bash
+cd Llama
+bash build_xcframework.sh
+```
+
 ## Repository Structure
 
 ```
@@ -183,6 +203,9 @@ xcframework_build/
 ├── VNC/
 │   ├── build_xcframework.sh          # libvncserver build script
 │   └── xcframework_build/            # Build artifacts (gitignored)
+├── Llama/
+│   ├── build_xcframework.sh          # llama.cpp build script
+│   └── llama_xcframework_build/      # Build artifacts (gitignored)
 ├── vnc_master_hash.txt               # libvncserver master branch tracking
 ├── README.md                         # English documentation
 └── README_CN.md                      # Chinese documentation
@@ -196,6 +219,7 @@ Build scripts support overriding default configuration via environment variables
 |----------|-------------|---------------|
 | `OPENSSL_VERSION` | OpenSSL version tag | `openssl-4.1.0` |
 | `LIBSSH_VERSION` | libssh version number | `0.12.2` |
+| `LLAMA_VERSION` | llama.cpp version tag | `v0.8.0` |
 | `OPENSSL_BUILD_DIR` | OpenSSL artifacts path (for CI) | Script relative path |
 
 Example:
@@ -213,6 +237,7 @@ PAT requires `repo` permission, used to push build artifacts to:
 - `foxterm/OpenSSL`
 - `foxterm/SSH`
 - `foxterm/VNC`
+- `foxterm/Llama`
 
 ## Technical Details
 
@@ -250,9 +275,20 @@ VNC build includes the following statically linked dependencies:
 - libpng
 - LZO 2.10
 
+### llama.cpp Build Approach
+
+The Llama build follows the official [build-xcframework.sh](https://github.com/ggml-org/llama.cpp/blob/master/build-xcframework.sh):
+
+- Build options: CMake + Xcode Generator, `Release` configuration
+- Backends: `GGML_METAL=ON` (Apple GPU) + `GGML_BLAS=ON` (Accelerate) + CPU backend
+- `GGML_METAL_EMBED_LIBRARY=ON`: embeds the `.metallib` into the static library, no external resources needed
+- Single-library merge: `libllama.a + libggml.a + libggml-base.a + libggml-cpu.a + libggml-metal.a + libggml-blas.a + libmtmd.a + libvendor-hash.a → libllama.a`
+- Trimmed: `LLAMA_BUILD_COMMON/TOOLS/TESTS/EXAMPLES/SERVER/APP=OFF`, `GGML_NATIVE=OFF`, `GGML_OPENMP=OFF`, `LLAMA_OPENSSL=OFF`
+
 ## License
 
 Build scripts are licensed under the MIT License. Each dependency library follows its respective license:
 - OpenSSL: [Apache License 2.0](https://github.com/openssl/openssl/blob/master/LICENSE.txt)
 - libssh: [LGPL 2.1](https://gitlab.com/libssh/libssh-mirror/-/blob/master/COPYING)
 - libvncserver: [GPL 2.0](https://github.com/LibVNC/libvncserver/blob/master/COPYING)
+- llama.cpp: [MIT](https://github.com/ggml-org/llama.cpp/blob/master/LICENSE)

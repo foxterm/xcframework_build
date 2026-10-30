@@ -123,7 +123,7 @@ jobs:
           path: |
             Llama/llama.cpp
             Llama/xcframework/
-          key: llama-${{ env.LLAMA_VERSION_TAG }}-macos15
+          key: llama-${{ env.LLAMA_VERSION_TAG }}-macos15-nodsym
 
       - name: Clone llama.cpp sources
         if: steps.llama-cache.outputs.cache-hit != 'true'
@@ -138,6 +138,23 @@ jobs:
         working-directory: ./Llama/llama.cpp
         run: |
           ./build-xcframework.sh ios-sim ios-device macos
+
+          # Fix: official xcodebuild -create-xcframework writes dangling "DebugSymbolsPath => dSYMs"
+          # refs, but no dSYMs dir is packaged -> Xcode: "Missing path .../dSYMs ... as defined by
+          # 'DebugSymbolsPath' in its Info.plist". Remove the refs and ad-hoc re-sign every slice.
+          python3 - build-apple/llama.xcframework/Info.plist <<'PY'
+          import plistlib, sys
+          p = plistlib.load(open(sys.argv[1], 'rb'))
+          for lib in p.get('AvailableLibraries', []):
+              lib.pop('DebugSymbolsPath', None)
+          with open(sys.argv[1], 'wb') as f:
+              plistlib.dump(p, f, fmt=plistlib.FMT_BINARY)
+          PY
+
+          find build-apple/llama.xcframework -type d -name "llama.framework" -print0 | while IFS= read -r -d '' fw; do
+            codesign --force --sign "-" --timestamp=none "$fw"
+          done
+
           mkdir -p ../xcframework
           cp -R build-apple/llama.xcframework ../xcframework/llama.xcframework
 

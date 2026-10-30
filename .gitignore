@@ -9,6 +9,5 @@ CSSH/xcframework/
 CSSH/xcframework_build/
 VNC/xcframework/
 VNC/xcframework_build/
-Llama/xcframework/
-Llama/llama_xcframework_build/
+Llama/
 build_log.txt

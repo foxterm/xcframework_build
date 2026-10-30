@@ -109,9 +109,7 @@ Build XCFrameworks Workflow
 │   └─ Package xcframework
 │
 ├─▶ Build Llama (llama.cpp)
-│   ├─ CMake + Xcode Generator (macOS universal / iOS / Simulator)
-│   ├─ Merge llama + ggml static libraries
-│   └─ Package xcframework
+│   └─ Run official build-xcframework.sh (ios-sim ios-device macos) → llama.xcframework
 │
 └─▶ Push to Target Repos
     ├─ foxterm/OpenSSL ← OpenSSL.xcframework
@@ -181,9 +179,17 @@ bash build_xcframework.sh
 
 ### Build Llama (llama.cpp)
 
+Uses the official llama.cpp build script (no custom build script in this repo):
+
 ```bash
-cd Llama
-bash build_xcframework.sh
+# 1. Clone llama.cpp
+git clone --depth 1 --branch v0.8.0 https://github.com/ggml-org/llama.cpp.git
+cd llama.cpp
+
+# 2. Build via official script (iOS Simulator, iOS Device, macOS)
+./build-xcframework.sh ios-sim ios-device macos
+
+# 3. Output: build-apple/llama.xcframework
 ```
 
 ## Repository Structure
@@ -203,10 +209,8 @@ xcframework_build/
 ├── VNC/
 │   ├── build_xcframework.sh          # libvncserver build script
 │   └── xcframework_build/            # Build artifacts (gitignored)
-├── Llama/
-│   ├── build_xcframework.sh          # llama.cpp build script
-│   └── llama_xcframework_build/      # Build artifacts (gitignored)
 ├── vnc_master_hash.txt               # libvncserver master branch tracking
+├── llama_version.txt                 # llama.cpp version tracking (CI-maintained)
 ├── README.md                         # English documentation
 └── README_CN.md                      # Chinese documentation
 ```
@@ -219,8 +223,9 @@ Build scripts support overriding default configuration via environment variables
 |----------|-------------|---------------|
 | `OPENSSL_VERSION` | OpenSSL version tag | `openssl-4.1.0` |
 | `LIBSSH_VERSION` | libssh version number | `0.12.2` |
-| `LLAMA_VERSION` | llama.cpp version tag | `v0.8.0` |
 | `OPENSSL_BUILD_DIR` | OpenSSL artifacts path (for CI) | Script relative path |
+
+> Note: Llama version is tracked via `llama_version.txt` (updated by CI from llama.cpp GitHub Latest Release). No local version variable.
 
 Example:
 ```bash
@@ -277,13 +282,19 @@ VNC build includes the following statically linked dependencies:
 
 ### llama.cpp Build Approach
 
-The Llama build follows the official [build-xcframework.sh](https://github.com/ggml-org/llama.cpp/blob/master/build-xcframework.sh):
+The Llama build **runs the official llama.cpp [build-xcframework.sh](https://github.com/ggml-org/llama.cpp/blob/master/build-xcframework.sh) directly** (no custom build script):
 
-- Build options: CMake + Xcode Generator, `Release` configuration
+```bash
+./build-xcframework.sh ios-sim ios-device macos
+```
+
+Official script handles everything:
+- CMake + Xcode Generator, `Release` configuration
 - Backends: `GGML_METAL=ON` (Apple GPU) + `GGML_BLAS=ON` (Accelerate) + CPU backend
-- `GGML_METAL_EMBED_LIBRARY=ON`: embeds the `.metallib` into the static library, no external resources needed
-- Single-library merge: `libllama.a + libggml.a + libggml-base.a + libggml-cpu.a + libggml-metal.a + libggml-blas.a + libmtmd.a + libvendor-hash.a → libllama.a`
-- Trimmed: `LLAMA_BUILD_COMMON/TOOLS/TESTS/EXAMPLES/SERVER/APP=OFF`, `GGML_NATIVE=OFF`, `GGML_OPENMP=OFF`, `LLAMA_OPENSSL=OFF`
+- `GGML_METAL_EMBED_LIBRARY=ON`: embeds the `.metallib` into the library, no external resources needed
+- Merges `libllama.a + libggml.a + libggml-base.a + libggml-cpu.a + libggml-metal.a + libggml-blas.a + libmtmd.a + libvendor-hash.a`
+- Outputs a dynamic `llama.framework` per platform, then packages `build-apple/llama.xcframework`
+- Version: latest GitHub Release tag (tracked in `llama_version.txt`, auto-detected by CI)
 
 ## License
 

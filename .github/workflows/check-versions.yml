@@ -116,8 +116,11 @@ jobs:
           # ========== 4. llama.cpp (GitHub Latest Release) ==========
           echo ""
           echo "==> 检查 llama.cpp 最新版本..."
-          CURRENT_LLAMA=$(grep -E '^LLAMA_VERSION=' Llama/build_xcframework.sh | head -1 | sed 's/.*"\(.*\)".*/\1/')
-          echo "当前 llama.cpp 版本: ${CURRENT_LLAMA}"
+          CURRENT_LLAMA=""
+          if [ -f "llama_version.txt" ]; then
+            CURRENT_LLAMA=$(cat llama_version.txt)
+          fi
+          echo "当前 llama.cpp 版本: ${CURRENT_LLAMA:-无}"
 
           LATEST_LLAMA=$(curl -fsSL "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest" \
             | python3 -c "
@@ -128,8 +131,7 @@ jobs:
 
           if [ -n "${LATEST_LLAMA}" ] && [ "${CURRENT_LLAMA}" != "${LATEST_LLAMA}" ]; then
             echo "发现新版本: ${LATEST_LLAMA}"
-            sed -i.bak "s/LLAMA_VERSION=\"${CURRENT_LLAMA}\"/LLAMA_VERSION=\"${LATEST_LLAMA}\"/" Llama/build_xcframework.sh
-            rm -f Llama/build_xcframework.sh.bak
+            echo "${LATEST_LLAMA}" > llama_version.txt
             LLAMA_UPDATED="true"
             LLAMA_NEW_VERSION="${LATEST_LLAMA}"
           else
@@ -171,7 +173,7 @@ jobs:
             ADD_FILES="${ADD_FILES} vnc_master_hash.txt"
           fi
           if [ "${{ steps.check.outputs.llama_updated }}" == "true" ]; then
-            ADD_FILES="${ADD_FILES} Llama/build_xcframework.sh"
+            ADD_FILES="${ADD_FILES} llama_version.txt"
           fi
 
           git add ${ADD_FILES}

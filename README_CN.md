@@ -108,9 +108,7 @@ graph TD
 │   └─ 打包 xcframework
 │
 ├─▶ 构建 Llama (llama.cpp)
-│   ├─ CMake + Xcode Generator 编译 (macOS 通用 / iOS / Simulator)
-│   ├─ 合并 llama + ggml 系列静态库
-│   └─ 打包 xcframework
+│   └─ 直接运行官方 build-xcframework.sh (ios-sim ios-device macos) → llama.xcframework
 │
 └─▶ 推送到目标仓库
     ├─ foxterm/OpenSSL ← OpenSSL.xcframework
@@ -180,9 +178,17 @@ bash build_xcframework.sh
 
 ### 编译 Llama (llama.cpp)
 
+本仓库不维护 llama.cpp 构建脚本，**直接使用官方 build-xcframework.sh**：
+
 ```bash
-cd Llama
-bash build_xcframework.sh
+# 1. 克隆 llama.cpp
+git clone --depth 1 --branch v0.8.0 https://github.com/ggml-org/llama.cpp.git
+cd llama.cpp
+
+# 2. 官方脚本编译 (iOS 模拟器 / iOS 真机 / macOS)
+./build-xcframework.sh ios-sim ios-device macos
+
+# 3. 输出: build-apple/llama.xcframework
 ```
 
 ## 仓库结构
@@ -202,10 +208,8 @@ xcframework_build/
 ├── VNC/
 │   ├── build_xcframework.sh          # libvncserver 构建脚本
 │   └── xcframework_build/            # 构建产物 (gitignored)
-├── Llama/
-│   ├── build_xcframework.sh          # llama.cpp 构建脚本
-│   └── llama_xcframework_build/      # 构建产物 (gitignored)
 ├── vnc_master_hash.txt               # libvncserver master 分支追踪
+├── llama_version.txt                 # llama.cpp 版本追踪 (CI 维护)
 ├── README.md                         # 英文文档
 └── README_CN.md                      # 中文文档
 ```
@@ -218,8 +222,9 @@ xcframework_build/
 |------|------|--------|
 | `OPENSSL_VERSION` | OpenSSL 版本标签 | `openssl-4.1.0` |
 | `LIBSSH_VERSION` | libssh 版本号 | `0.12.2` |
-| `LLAMA_VERSION` | llama.cpp 版本标签 | `v0.8.0` |
 | `OPENSSL_BUILD_DIR` | OpenSSL 产物路径 (CI 用) | 脚本相对路径 |
+
+> 注：Llama 版本通过 `llama_version.txt` 追踪（CI 从 llama.cpp GitHub Latest Release 自动更新），无本地版本变量。
 
 示例：
 ```bash
@@ -276,13 +281,19 @@ VNC 构建包含以下静态链接的依赖：
 
 ### llama.cpp 构建方式
 
-Llama 构建与官方 [build-xcframework.sh](https://github.com/ggml-org/llama.cpp/blob/master/build-xcframework.sh) 保持一致：
+Llama 构建**直接运行官方 [build-xcframework.sh](https://github.com/ggml-org/llama.cpp/blob/master/build-xcframework.sh)**（本仓库不维护自定义构建脚本）：
 
+```bash
+./build-xcframework.sh ios-sim ios-device macos
+```
+
+官方脚本负责全部流程：
 - 编译选项：CMake + Xcode Generator，`Release` 配置
 - 后端：`GGML_METAL=ON`（Apple GPU）+ `GGML_BLAS=ON`（Accelerate）+ CPU 后端
-- `GGML_METAL_EMBED_LIBRARY=ON`：将 `.metallib` 嵌入静态库，消费方无需外部资源
-- 单库合并：`libllama.a + libggml.a + libggml-base.a + libggml-cpu.a + libggml-metal.a + libggml-blas.a + libmtmd.a + libvendor-hash.a → libllama.a`
-- 裁剪：`LLAMA_BUILD_COMMON/TOOLS/TESTS/EXAMPLES/SERVER/APP=OFF`，`GGML_NATIVE=OFF`，`GGML_OPENMP=OFF`，`LLAMA_OPENSSL=OFF`
+- `GGML_METAL_EMBED_LIBRARY=ON`：将 `.metallib` 嵌入库中，消费方无需外部资源
+- 合并 `libllama.a + libggml.a + libggml-base.a + libggml-cpu.a + libggml-metal.a + libggml-blas.a + libmtmd.a + libvendor-hash.a`
+- 每平台产出动态 `llama.framework`，最终打包为 `build-apple/llama.xcframework`
+- 版本：GitHub Latest Release tag（记录于 `llama_version.txt`，由 CI 自动检测）
 
 ## 许可证
 

@@ -106,42 +106,46 @@ jobs:
           bash build_xcframework.sh
 
       # ================================================================
-      # Llama (llama.cpp) — 独立构建，不依赖 OpenSSL
+      # Llama (llama.cpp) — 使用 llama.cpp 官方 build-xcframework.sh 编译
+      #   ./build-xcframework.sh ios-sim ios-device macos
+      #   官方脚本输出: llama.cpp/build-apple/llama.xcframework
       # ================================================================
       - name: Get Llama version tag
         run: |
-          VERSION=$(grep -E '^LLAMA_VERSION=' Llama/build_xcframework.sh | head -1 | sed 's/.*"\(.*\)".*/\1/')
-          echo "LLAMA_VERSION_TAG=${VERSION}" >> "$GITHUB_ENV"
-          echo "Llama version: ${VERSION}"
+          LLAMA_VERSION_TAG=$(curl -s https://api.github.com/repos/ggml-org/llama.cpp/releases/latest | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])")
+          echo "LLAMA_VERSION_TAG=${LLAMA_VERSION_TAG}" >> "$GITHUB_ENV"
+          echo "Llama version: ${LLAMA_VERSION_TAG}"
 
       - name: Restore Llama cache
         id: llama-cache
         uses: actions/cache@v6
         with:
-          path: Llama/llama_xcframework_build/
+          path: |
+            Llama/llama.cpp
+            Llama/xcframework/
           key: llama-${{ env.LLAMA_VERSION_TAG }}-macos15
 
-      - name: Cache Llama sources
-        uses: actions/cache@v6
-        with:
-          path: Llama/llama_xcframework_build/sources/
-          key: llama-sources-${{ env.LLAMA_VERSION_TAG }}
-
-      - name: Build Llama (llama.cpp)
-        if: (inputs.build_libs == 'all' || contains(inputs.build_libs, 'llama')) && steps.llama-cache.outputs.cache-hit != 'true'
+      - name: Clone llama.cpp sources
+        if: steps.llama-cache.outputs.cache-hit != 'true'
         run: |
-          rm -rf Llama/llama_xcframework_build/build Llama/llama_xcframework_build/xcframework Llama/xcframework
-          mkdir -p Llama/llama_xcframework_build
-          cd Llama && bash build_xcframework.sh
+          rm -rf Llama
+          mkdir -p Llama
+          cd Llama
+          git clone --depth 1 --branch ${LLAMA_VERSION_TAG} https://github.com/ggml-org/llama.cpp.git llama.cpp
+
+      - name: Build Llama (official build-xcframework.sh)
+        if: (inputs.build_libs == 'all' || contains(inputs.build_libs, 'llama')) && steps.llama-cache.outputs.cache-hit != 'true'
+        working-directory: ./Llama/llama.cpp
+        run: |
+          ./build-xcframework.sh ios-sim ios-device macos
+          mkdir -p ../xcframework
+          cp -R build-apple/llama.xcframework ../xcframework/llama.xcframework
 
       - name: Report Llama sizes
         if: always()
         run: |
           echo "=== Llama xcframework ==="
           ls -lh Llama/xcframework/llama.xcframework/ 2>/dev/null || echo "Not found"
-          for d in Llama/llama_xcframework_build/build/llama_*/; do
-            [ -d "$d" ] && echo "$d: $(du -sh "$d" | cut -f1)"
-          done
 
       # ================================================================
       # Push to target repos
